@@ -1,10 +1,9 @@
-require 'test_helper'
+require File.join(File.dirname(__FILE__), 'test_helper')
 require File.join(File.dirname(__FILE__), '..', 'lib', 'acl9')
-require 'support/models'
+require File.join(File.dirname(__FILE__), 'support', 'models')
 
-#Logger = ActiveRecord::Base.logger
-load 'support/schema.rb'
-
+Logger = ActiveRecord::Base.logger
+load File.join(File.dirname(__FILE__), 'support', 'schema.rb')
 
 class SystemRolesTest < Test::Unit::TestCase
   it "should not delete a system role" do
@@ -366,5 +365,50 @@ class UsersRolesAndSubjectsWithNamespacedClassNamesTest < Test::Unit::TestCase
 
     @user.has_no_roles!
     @user2.has_no_roles!
+  end
+end
+
+class UserWithExpiredAndActievRolesTest < Test::Unit::TestCase
+  before do
+    Role.destroy_all
+    User.delete_all
+
+    @user = User.create!
+    @user2 = User.create!
+
+    #create authorized object that will be replace of something
+    @uuid = Uuid.new
+    @uuid.uuid = "C41642EE-2780-0001-189F-17F3101B2MMM"
+    @uuid.save
+  end
+
+  it "should basically work" do
+    # with expire date
+    @user.has_role!('admin', @uuid, Time.now + 1.day)
+    @user.has_role!('admin', @uuid, Time.now + 2.day)    
+    @user.has_role!('user')
+
+    # should be admin even if the user doesn't have permanent roles
+    @user.has_role?('admin', @uuid).should be_true
+    
+    @user.has_roles_for?(@uuid).should be_true
+    @user.has_role!('admin', @uuid)
+    @user.has_role?('user').should be_true
+    @user.role_objects.each{|r| r.expired?.should be_false}
+
+    @user.has_role!('expired_admin', @uuid, Time.now - 1.day)
+    @user.role_objects.find_all{|r| r.expired?}.size.should == 1
+    @user.has_role?('expired_admin', @uuid).should be_false
+
+    @user.has_role!('expired_admin', @uuid, Time.now - 2.day)
+    @user.role_objects.find_all{|r| r.expired?}.size.should == 2
+    @user.has_role?('expired_admin', @uuid).should be_false
+
+    @user.has_role!('expired_admin', @uuid, Time.now + 2.day)
+    @user.role_objects.find_all{|r| r.expired?}.size.should == 2
+    @user.has_role?('expired_admin', @uuid).should be_true
+
+    @user.has_role!('expired_user', nil, Time.now - 1.day)
+    @user.has_role?('expired_user').should be_false  
   end
 end

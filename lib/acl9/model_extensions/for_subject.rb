@@ -34,13 +34,13 @@ module Acl9
       # @param [Object] object Object to query a role on
       #
       # @see Acl9::ModelExtensions::Object#accepts_role?
-      def has_role?(role_name, object = nil)
-        !! if object.nil? && !::Acl9.config[:protect_global_roles]
-          self.role_objects.find_by_name(role_name.to_s) ||
-          self.role_objects.member?(get_role(role_name, nil))
-        else
-          role = get_role(role_name, object)
-          role && self.role_objects.exists?(role.id)
+      def has_role?(role_name, object = nil, expires_at = nil)
+        if object.nil? && !::Acl9.config[:protect_global_roles]
+          roles_by_name = self.role_objects.find_all_by_name(role_name.to_s)
+          return roles_by_name && !roles_by_name.reject{|r| r.expired?}.empty?
+        else  
+          roles = get_roles(role_name, object, expires_at)        
+          roles && roles.reject{|r| r.expired?}.any?{|r| self.role_objects.exists?(r.id)}
         end
       end
 
@@ -50,17 +50,20 @@ module Acl9
       # @param [Symbol,String] role_name Role name
       # @param [Object] object Object to add a role for
       # @see Acl9::ModelExtensions::Object#accepts_role!
-      def has_role!(role_name, object = nil)
-        role = get_role(role_name, object)
+      def has_role!(role_name, object = nil, expires_at = nil)
+        role = get_roles(role_name, object, expires_at || -1)
 
-        if role.nil?
+        if role.nil? || role.empty?
           role_attrs = case object
                        when Class then { :authorizable_type => object.to_s }
                        when nil   then {}
                        else            { :authorizable => object }
                        end.merge(      { :name => role_name.to_s })
+          role_attrs.merge!({:expires_at => expires_at}) if role_expirable?
 
           role = self._auth_role_class.create(role_attrs)
+        else
+          role = role.first           
         end
 
         self.role_objects << role if role && !self.role_objects.exists?(role.id)
@@ -73,7 +76,8 @@ module Acl9
       # @param [Object] object Object to remove a role on
       # @see Acl9::ModelExtensions::Object#accepts_no_role!
       def has_no_role!(role_name, object = nil)
-        delete_role(get_role(role_name, object))
+        roles = get_roles(role_name, object)
+        roles.each{|r| delete_role r}
       end
 
       ##
@@ -139,8 +143,18 @@ module Acl9
         end
       end
 
-      def get_role(role_name, object)
+      def get_roles(role_name, object, expires_at = nil)
         role_name = role_name.to_s
+        expires_at_condition = if expires_at && expires_at != -1
+          raise ArgumentError, "You should add expires_at column before using expires_at argument" unless role_expirable?
+          " AND expires_at = '#{expires_at.to_s(:db)}'"
+        else
+          if expires_at == -1 && role_expirable?
+            " AND expires_at IS NULL"
+          else
+            "" 
+          end
+        end
 
         cond = case object
                when Class
@@ -153,8 +167,9 @@ module Acl9
                    role_name, object.class.base_class.to_s, object.id
                  ]
                end
+        cond[0] += expires_at_condition       
 
-        self._auth_role_class.first :conditions => cond
+        self._auth_role_class.all :conditions => cond
       end
 
       def delete_role(role)
@@ -165,6 +180,10 @@ module Acl9
           end
         end
       end
+
+      def role_expirable?
+        _auth_role_class.new.respond_to?(:expires_at)
+      end
       
       protected
 
@@ -173,11 +192,11 @@ module Acl9
       end
       
       def _auth_role_assoc
-      	self.class._auth_role_assoc_name
+        self.class._auth_role_assoc_name
       end
 
       def role_objects
-      	send(self._auth_role_assoc)
+        send(self._auth_role_assoc)
       end
 
     end

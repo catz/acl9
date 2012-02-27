@@ -1,5 +1,6 @@
 require File.join(File.dirname(__FILE__), 'model_extensions', 'for_subject')
 require File.join(File.dirname(__FILE__), 'model_extensions', 'for_object')
+require File.join(File.dirname(__FILE__), 'model_extensions', 'for_role')
 
 module Acl9
   module ModelExtensions  #:nodoc:
@@ -134,7 +135,9 @@ module Acl9
           :class_name => subject,
           :join_table => join_table
 
-        belongs_to :authorizable, :polymorphic => true
+        belongs_to :authorizable, :polymorphic => true       
+
+        include Acl9::ModelExtensions::ForRole
       end
     end
   end
