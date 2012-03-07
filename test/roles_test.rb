@@ -1,10 +1,9 @@
-require 'test_helper'
+require File.join(File.dirname(__FILE__), 'test_helper')
 require File.join(File.dirname(__FILE__), '..', 'lib', 'acl9')
-require 'support/models'
+require File.join(File.dirname(__FILE__), 'support', 'models')
 
-#Logger = ActiveRecord::Base.logger
-load 'support/schema.rb'
-
+Logger = ActiveRecord::Base.logger
+load File.join(File.dirname(__FILE__), 'support', 'schema.rb')
 
 class SystemRolesTest < Test::Unit::TestCase
   it "should not delete a system role" do

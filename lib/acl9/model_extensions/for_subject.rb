@@ -40,7 +40,7 @@ module Acl9
           self.role_objects.member?(get_role(role_name, nil))
         else
           role = get_role(role_name, object)
-          role && self.role_objects.exists?(role.id)
+          role && self.role_objects.include?(role)
         end
       end
 
@@ -62,8 +62,7 @@ module Acl9
 
           role = self._auth_role_class.create(role_attrs)
         end
-
-        self.role_objects << role if role && !self.role_objects.exists?(role.id)
+        self.role_objects << role if role && !self.role_objects.include?(role)
       end
 
       ##

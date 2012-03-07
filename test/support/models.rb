@@ -6,6 +6,11 @@ class User < ActiveRecord::Base
   acts_as_authorization_subject
 end
 
+class RolesUser < ActiveRecord::Base
+  belongs_to :user  # foreign key - user_id
+  belongs_to :role  # foreign key - role_id
+end
+
 class Foo < ActiveRecord::Base
   acts_as_authorization_object
 end
@@ -27,6 +32,13 @@ class AnotherRole < ActiveRecord::Base
   acts_as_authorization_role :subject_class_name => "AnotherSubject"
 end
 
+class AnotherRolesAnotherSubject < ActiveRecord::Base
+  set_table_name 'another_roles_another_subjects'
+
+  belongs_to :another_subject  # foreign key - another_subject_id
+  belongs_to :another_role     # foreign key - another_role_id
+end
+
 class FooBar < ActiveRecord::Base
   acts_as_authorization_object :role_class_name => 'AnotherRole', :subject_class_name => "AnotherSubject"
 end
@@ -39,7 +51,28 @@ class DifferentAssociationNameRole < ActiveRecord::Base
 	acts_as_authorization_role :subject_class_name => "DifferentAssociationNameSubject"
 end
 
+class DifferentAssociationNameRolesDifferentAssociationNameSubject < ActiveRecord::Base
+  set_table_name 'different_association_name_roles_different_association_name_subjects'
+
+  belongs_to :different_association_name_subject  # foreign key - different_association_name_subject_id
+  belongs_to :different_association_name_role     # foreign key - different_association_name_role_id
+end
+
 module Other
+
+  class Assignment < ActiveRecord::Base
+    set_table_name 'other_roles_other_users'
+
+    belongs_to :user  # foreign key - user_id
+    belongs_to :role  # foreign key - role_id
+  end 
+
+  class Other::OtherRolesOtherUser  < ActiveRecord::Base
+    set_table_name "other_roles_other_users"
+
+    belongs_to :user  # foreign key - user_id
+    belongs_to :role  # foreign key - role_id    
+  end
 
   class Other::User < ActiveRecord::Base
     set_table_name "other_users"
